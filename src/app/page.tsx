@@ -95,18 +95,23 @@ export default function Home() {
     const t2 = setTimeout(checkInstalled, 1500);
     const t3 = setTimeout(checkInstalled, 3000);
 
-    // Intentar obtener wallet address del MiniKit
+    // Obtener wallet address via walletAuth
     const getWallet = async () => {
       try {
-       if (MiniKit.isInstalled() && (MiniKit as any).walletAddress) {
-         setWalletAddress((MiniKit as any).walletAddress);
+        if (!MiniKit.isInstalled()) return;
+        const nonce = crypto.randomUUID().replace(/-/g, "");
+        const { finalPayload } = await MiniKit.commandsAsync.walletAuth({
+          nonce,
+        });
+        if (finalPayload.status === "success" && "address" in finalPayload) {
+          setWalletAddress(finalPayload.address);
         }
       } catch {
-        // Si no esta disponible, se obtendra despues
+        // Si no esta disponible, se obtendra durante el claim
       }
     };
 
-    setTimeout(getWallet, 2000);
+    setTimeout(getWallet, 1500);
 
     return () => {
       clearTimeout(t1);
@@ -139,7 +144,7 @@ export default function Home() {
           return;
         }
 
-        // claimCooldown() selector = 0x1e83409a â en realidad necesitamos el valor
+        // claimCooldown() selector = 0x1e83409a
         // Sabemos que es 24h = 86400 seconds
         const cooldown = 86400;
         const nextClaimTime = lastClaimTimestamp + cooldown;
@@ -237,8 +242,24 @@ export default function Home() {
 
       setClaimStatus({ type: "loading", message: "Generando ticket..." });
 
-      // Obtener wallet address
-      const userAddr = (MiniKit as any).walletAddress || walletAddress;
+      // Obtener wallet address - intentar walletAuth si no tenemos
+      let userAddr = walletAddress;
+      if (!userAddr) {
+        try {
+          const nonce = crypto.randomUUID().replace(/-/g, "");
+          const { finalPayload: authPayload } =
+            await MiniKit.commandsAsync.walletAuth({ nonce });
+          if (
+            authPayload.status === "success" &&
+            "address" in authPayload
+          ) {
+            userAddr = authPayload.address;
+            setWalletAddress(authPayload.address);
+          }
+        } catch {
+          // walletAuth failed
+        }
+      }
       if (!userAddr) {
         setClaimStatus({
           type: "error",
@@ -498,7 +519,7 @@ export default function Home() {
 
             {parseFloat(usdcAmount) > 0 && (
               <div className="estimate">
-                Recibiras â <strong>{estimatedMXC} MXC</strong>
+                Recibiras ≈ <strong>{estimatedMXC} MXC</strong>
               </div>
             )}
 
