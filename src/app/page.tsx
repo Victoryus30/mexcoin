@@ -98,8 +98,8 @@ export default function Home() {
     // Intentar obtener wallet address del MiniKit
     const getWallet = async () => {
       try {
-        if (MiniKit.isInstalled() && MiniKit.walletAddress) {
-          setWalletAddress(MiniKit.walletAddress);
+       if (MiniKit.isInstalled() && (MiniKit as any).walletAddress) {
+         setWalletAddress((MiniKit as any).walletAddress);
         }
       } catch {
         // Si no esta disponible, se obtendra despues
@@ -238,7 +238,7 @@ export default function Home() {
       setClaimStatus({ type: "loading", message: "Generando ticket..." });
 
       // Obtener wallet address
-      const userAddr = MiniKit.walletAddress || walletAddress;
+      const userAddr = (MiniKit as any).walletAddress || walletAddress;
       if (!userAddr) {
         setClaimStatus({
           type: "error",
