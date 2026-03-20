@@ -5,7 +5,7 @@ interface IRequestPayload {
   payload: ISuccessResult;
   action: string;
   signal?: string;
-  userAddress: string; // Wallet address del usuario (para firmar ticket)
+  userAddress: string;
 }
 
 /**
@@ -13,9 +13,9 @@ interface IRequestPayload {
  *
  * Flujo:
  *   1. Recibe proof de World ID + wallet address del usuario
- *   2. Verifica proof en la nube (World ID 4.0 - /api/v4/)
- *   3. Si valido, firma un ticket: (userAddress, nullifierHash, deadline)
- *   4. Retorna ticket firmado para que el frontend lo envie al contrato
+ *   2. Verifica proof via API v2 de World ID (fetch directo, sin libreria)
+ *   3. Si valido, firma un ticket ECDSA: (userAddress, nullifierHash, deadline)
+ *   4. Retorna ticket firmado para que el frontend lo envie al contrato V3
  */
 export async function POST(req: NextRequest) {
   try {
@@ -36,28 +36,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // === PASO 1: Verificar proof en la nube (World ID 4.0) ===
-    // NO usamos verifyCloudProof() porque usa formato v2.
-    // La API v4 requiere un array "responses" en el body.
-    // Solo enviamos los campos que v4 acepta (sin protocol_version ni extras).
+    // === PASO 1: Verificar proof en la nube ===
+    // Usamos fetch directo al endpoint v2 con solo los campos requeridos.
+    // signal_hash se calcula igual que la libreria: hashToField del signal.
+    // Para signal vacio, el hash es un valor fijo conocido.
+    const { hashToField } = await import("@worldcoin/idkit-core/backend");
+
+    const signalHash = hashToField(signal ?? "").digest;
+
     const requestBody = {
+      merkle_root: payload.merkle_root,
+      nullifier_hash: payload.nullifier_hash,
+      proof: payload.proof,
+      verification_level: payload.verification_level,
       action,
-      signal: signal ?? "",
-      responses: [
-        {
-          merkle_root: payload.merkle_root,
-          nullifier_hash: payload.nullifier_hash,
-          proof: payload.proof,
-          verification_level: payload.verification_level,
-        },
-      ],
+      signal_hash: signalHash,
     };
 
-    console.log("Payload from MiniKit:", JSON.stringify(payload));
-    console.log("Request body to v4:", JSON.stringify(requestBody));
+    console.log("APP_ID:", app_id);
+    console.log("Request body to v2:", JSON.stringify(requestBody));
 
     const verifyResponse = await fetch(
-      `https://developer.worldcoin.org/api/v4/verify/${app_id}`,
+      `https://developer.worldcoin.org/api/v2/verify/${app_id}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -65,16 +65,17 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    const verifyData = await verifyResponse.json().catch(() => ({}));
-
     if (!verifyResponse.ok) {
-      console.error("Cloud proof verification failed:", verifyData);
+      const errorData = await verifyResponse.json().catch(() => ({}));
+      console.error("Cloud proof verification failed:", JSON.stringify(errorData));
       return NextResponse.json({
         error: "Verificacion de World ID fallida",
-        details: verifyData,
+        details: errorData,
         status: 400,
       });
     }
+
+    console.log("World ID verification SUCCESS");
 
     // === PASO 2: Firmar ticket para el contrato ===
     const SIGNER_PRIVATE_KEY = process.env.SIGNER_PRIVATE_KEY;
@@ -85,12 +86,8 @@ export async function POST(req: NextRequest) {
     }
 
     const nullifierHash = payload.nullifier_hash;
-
-    // Deadline: 5 minutos desde ahora
     const deadline = Math.floor(Date.now() / 1000) + 300;
 
-    // Crear el mismo hash que el contrato espera:
-    // keccak256(abi.encodePacked(userAddress, nullifierHash, deadline))
     const { keccak256, encodePacked, toBytes } = await import("viem");
     const { privateKeyToAccount } = await import("viem/accounts");
 
@@ -101,7 +98,6 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    // Firmar con el prefijo de Ethereum (igual que ecrecover en Solidity)
     const account = privateKeyToAccount(SIGNER_PRIVATE_KEY as `0x${string}`);
     const signature = await account.signMessage({
       message: { raw: toBytes(ticketHash) },
