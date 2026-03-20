@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  verifyCloudProof,
-  IVerifyResponse,
-  ISuccessResult,
-} from "@worldcoin/minikit-js";
+import { ISuccessResult } from "@worldcoin/minikit-js";
 
 interface IRequestPayload {
   payload: ISuccessResult;
@@ -17,7 +13,7 @@ interface IRequestPayload {
  *
  * Flujo:
  *   1. Recibe proof de World ID + wallet address del usuario
- *   2. Verifica proof en la nube (verifyCloudProof - World ID 4.0)
+ *   2. Verifica proof en la nube (World ID 4.0 - /api/v4/)
  *   3. Si valido, firma un ticket: (userAddress, nullifierHash, deadline)
  *   4. Retorna ticket firmado para que el frontend lo envie al contrato
  */
@@ -26,7 +22,7 @@ export async function POST(req: NextRequest) {
     const { payload, action, signal, userAddress } =
       (await req.json()) as IRequestPayload;
 
-    const app_id = (process.env.APP_ID || process.env.NEXT_PUBLIC_APP_ID) as `app_${string}`;
+    const app_id = (process.env.APP_ID || process.env.NEXT_PUBLIC_APP_ID) as string;
 
     if (!app_id) {
       return NextResponse.json(
@@ -41,21 +37,34 @@ export async function POST(req: NextRequest) {
     }
 
     // === PASO 1: Verificar proof en la nube (World ID 4.0) ===
-    // NOTA: minikit-js@1.11.0 usa internamente /api/v2/verify/ (World ID 3.0)
-    // pero Developer Portal esta en World ID 4.0, asi que forzamos /api/v4/
-    const verifyRes = (await verifyCloudProof(
-      payload,
-      app_id,
-      action,
-      signal,
-      `https://developer.worldcoin.org/api/v4/verify/${app_id}`
-    )) as IVerifyResponse;
+    // NO usamos verifyCloudProof() porque usa formato v2.
+    // La API v4 requiere un array "responses" en el body.
+    const verifyResponse = await fetch(
+      `https://developer.worldcoin.org/api/v4/verify/${app_id}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          signal: signal ?? "",
+          responses: [
+            {
+              merkle_root: payload.merkle_root,
+              nullifier_hash: payload.nullifier_hash,
+              proof: payload.proof,
+              verification_level: payload.verification_level,
+            },
+          ],
+        }),
+      }
+    );
 
-    if (!verifyRes.success) {
-      console.error("Cloud proof verification failed:", verifyRes);
+    if (!verifyResponse.ok) {
+      const errorData = await verifyResponse.json().catch(() => ({}));
+      console.error("Cloud proof verification failed:", errorData);
       return NextResponse.json({
         error: "Verificacion de World ID fallida",
-        details: verifyRes,
+        details: errorData,
         status: 400,
       });
     }
@@ -75,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     // Crear el mismo hash que el contrato espera:
     // keccak256(abi.encodePacked(userAddress, nullifierHash, deadline))
-    const { keccak256, encodePacked, toBytes, toHex } = await import("viem");
+    const { keccak256, encodePacked, toBytes } = await import("viem");
     const { privateKeyToAccount } = await import("viem/accounts");
 
     const ticketHash = keccak256(
@@ -96,7 +105,6 @@ export async function POST(req: NextRequest) {
       nullifierHash,
       deadline,
       signature,
-      verifyRes,
     });
   } catch (error: unknown) {
     console.error("Verification error:", error);
