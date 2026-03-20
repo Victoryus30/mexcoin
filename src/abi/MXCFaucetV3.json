@@ -11,7 +11,7 @@
   },
   {
     "inputs": [
-      { "name": "nullifierHash", "type": "uint256" },
+      { "name": "nullifierHash", "type": "bytes32" },
       { "name": "deadline", "type": "uint256" },
       { "name": "signature", "type": "bytes" }
     ],
@@ -104,8 +104,8 @@
     "anonymous": false,
     "inputs": [
       { "indexed": true, "name": "user", "type": "address" },
-      { "indexed": false, "name": "nullifierHash", "type": "uint256" },
-      { "indexed": false, "name": "amount", "type": "uint256" }
+      { "indexed": false, "name": "amount", "type": "uint256" },
+      { "indexed": false, "name": "nullifierHash", "type": "bytes32" }
     ],
     "name": "Claimed",
     "type": "event"

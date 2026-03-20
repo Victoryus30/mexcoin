@@ -92,16 +92,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const nullifierHash = payload.nullifier_hash;
+    // nullifierHash viene como hex string de World ID - asegurar formato bytes32 (66 chars)
+    const rawNullifier = payload.nullifier_hash;
+    const nullifierHash = ("0x" + rawNullifier.replace("0x", "").padStart(64, "0")) as `0x${string}`;
     const deadline = Math.floor(Date.now() / 1000) + 300;
 
     const { keccak256, encodePacked, toBytes } = await import("viem");
     const { privateKeyToAccount } = await import("viem/accounts");
 
+    // El contrato desplegado usa bytes32 para nullifierHash (NO uint256)
     const ticketHash = keccak256(
       encodePacked(
-        ["address", "uint256", "uint256"],
-        [userAddress as `0x${string}`, BigInt(nullifierHash), BigInt(deadline)]
+        ["address", "bytes32", "uint256"],
+        [userAddress as `0x${string}`, nullifierHash, BigInt(deadline)]
       )
     );
 
