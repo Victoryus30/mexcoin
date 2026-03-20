@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  verifyCloudProof,
-  IVerifyResponse,
-  ISuccessResult,
-} from "@worldcoin/minikit-js";
+import { ISuccessResult } from "@worldcoin/minikit-js";
 
 interface IRequestPayload {
   payload: ISuccessResult;
@@ -17,7 +13,7 @@ interface IRequestPayload {
  *
  * Flujo:
  *   1. Recibe proof de World ID + wallet address del usuario
- *   2. Verifica proof con verifyCloudProof (endpoint v2, calcula signal_hash)
+ *   2. Verifica proof via API v4 de World ID (accion creada en World ID 4.0)
  *   3. Si valido, firma un ticket ECDSA: (userAddress, nullifierHash, deadline)
  *   4. Retorna ticket firmado para que el frontend lo envie al contrato V3
  */
@@ -26,7 +22,7 @@ export async function POST(req: NextRequest) {
     const { payload, action, signal, userAddress } =
       (await req.json()) as IRequestPayload;
 
-    const app_id = (process.env.APP_ID || process.env.NEXT_PUBLIC_APP_ID) as `app_${string}`;
+    const app_id = (process.env.APP_ID || process.env.NEXT_PUBLIC_APP_ID) as string;
 
     if (!app_id) {
       return NextResponse.json(
@@ -40,25 +36,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // === PASO 1: Verificar proof con verifyCloudProof ===
-    // Usa endpoint v2 por defecto. Calcula signal_hash internamente.
-    console.log("APP_ID:", app_id);
-    console.log("Action:", action);
-    console.log("Payload keys:", Object.keys(payload));
-
-    const verifyRes = (await verifyCloudProof(
-      payload,
-      app_id,
+    // === PASO 1: Verificar proof via API v4 (World ID 4.0) ===
+    // La accion fue creada en World ID 4.0, por eso v2 dice "Action not found".
+    // v4 requiere: action, protocol_version, y responses[] array.
+    // MiniKit retorna version:1 en el payload, lo mapeamos a protocol_version.
+    const v4Body = {
       action,
-      signal
-    )) as IVerifyResponse;
+      signal: signal ?? "",
+      protocol_version: "v1",
+      responses: [
+        {
+          merkle_root: payload.merkle_root,
+          nullifier_hash: payload.nullifier_hash,
+          proof: payload.proof,
+          verification_level: payload.verification_level,
+        },
+      ],
+    };
 
-    console.log("verifyCloudProof response:", JSON.stringify(verifyRes));
+    console.log("Sending to v4:", JSON.stringify(v4Body));
 
-    if (!verifyRes.success) {
+    const verifyResponse = await fetch(
+      `https://developer.worldcoin.org/api/v4/verify/${app_id}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(v4Body),
+      }
+    );
+
+    const verifyData = await verifyResponse.json().catch(() => ({}));
+    console.log("v4 response status:", verifyResponse.status);
+    console.log("v4 response body:", JSON.stringify(verifyData));
+
+    if (!verifyResponse.ok) {
       return NextResponse.json({
         error: "Verificacion de World ID fallida",
-        details: verifyRes,
+        details: verifyData,
         status: 400,
       });
     }
