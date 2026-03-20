@@ -8,12 +8,16 @@ interface IRequestPayload {
   userAddress: string;
 }
 
+// signal_hash de string vacio "" segun World ID docs
+const EMPTY_SIGNAL_HASH =
+  "0x00c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a4";
+
 /**
  * POST /api/verify
  *
  * Flujo:
  *   1. Recibe proof de World ID + wallet address del usuario
- *   2. Verifica proof via API v4 de World ID (accion creada en World ID 4.0)
+ *   2. Verifica proof via API v4 de World ID (formato legacy 3.0)
  *   3. Si valido, firma un ticket ECDSA: (userAddress, nullifierHash, deadline)
  *   4. Retorna ticket firmado para que el frontend lo envie al contrato V3
  */
@@ -36,20 +40,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // === PASO 1: Verificar proof via API v4 (World ID 4.0) ===
-    // La accion fue creada en World ID 4.0, por eso v2 dice "Action not found".
-    // v4 requiere: action, protocol_version, y responses[] array.
-    // MiniKit retorna version:1 en el payload, lo mapeamos a protocol_version.
+    // === PASO 1: Verificar proof via API v4 (formato legacy World ID 3.0) ===
+    // MiniKit genera proofs en formato legacy (3.0).
+    // v4 requiere: protocol_version, nonce, action, environment, responses[]
+    // En responses: identifier (no verification_level), nullifier (no nullifier_hash)
     const v4Body = {
+      protocol_version: "3.0",
+      nonce: crypto.randomUUID(),
       action,
-      signal: signal ?? "",
-      protocol_version: "v1",
+      environment: "production",
       responses: [
         {
-          merkle_root: payload.merkle_root,
-          nullifier_hash: payload.nullifier_hash,
+          identifier: payload.verification_level,
+          signal_hash: EMPTY_SIGNAL_HASH,
           proof: payload.proof,
-          verification_level: payload.verification_level,
+          merkle_root: payload.merkle_root,
+          nullifier: payload.nullifier_hash,
         },
       ],
     };
@@ -57,7 +63,7 @@ export async function POST(req: NextRequest) {
     console.log("Sending to v4:", JSON.stringify(v4Body));
 
     const verifyResponse = await fetch(
-      `https://developer.worldcoin.org/api/v4/verify/${app_id}`,
+      `https://developer.world.org/api/v4/verify/${app_id}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,8 +72,7 @@ export async function POST(req: NextRequest) {
     );
 
     const verifyData = await verifyResponse.json().catch(() => ({}));
-    console.log("v4 response status:", verifyResponse.status);
-    console.log("v4 response body:", JSON.stringify(verifyData));
+    console.log("v4 status:", verifyResponse.status, "body:", JSON.stringify(verifyData));
 
     if (!verifyResponse.ok) {
       return NextResponse.json({
