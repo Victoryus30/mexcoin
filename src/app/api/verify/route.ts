@@ -41,11 +41,14 @@ export async function POST(req: NextRequest) {
     }
 
     // === PASO 1: Verificar proof en la nube (World ID 4.0) ===
+    // NOTA: minikit-js@1.11.0 usa internamente /api/v2/verify/ (World ID 3.0)
+    // pero Developer Portal esta en World ID 4.0, asi que forzamos /api/v4/
     const verifyRes = (await verifyCloudProof(
       payload,
       app_id,
       action,
-      signal
+      signal,
+      `https://developer.worldcoin.org/api/v4/verify/${app_id}`
     )) as IVerifyResponse;
 
     if (!verifyRes.success) {
