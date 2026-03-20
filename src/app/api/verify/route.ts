@@ -39,32 +39,39 @@ export async function POST(req: NextRequest) {
     // === PASO 1: Verificar proof en la nube (World ID 4.0) ===
     // NO usamos verifyCloudProof() porque usa formato v2.
     // La API v4 requiere un array "responses" en el body.
+    // Solo enviamos los campos que v4 acepta (sin protocol_version ni extras).
+    const requestBody = {
+      action,
+      signal: signal ?? "",
+      responses: [
+        {
+          merkle_root: payload.merkle_root,
+          nullifier_hash: payload.nullifier_hash,
+          proof: payload.proof,
+          verification_level: payload.verification_level,
+        },
+      ],
+    };
+
+    console.log("Payload from MiniKit:", JSON.stringify(payload));
+    console.log("Request body to v4:", JSON.stringify(requestBody));
+
     const verifyResponse = await fetch(
       `https://developer.worldcoin.org/api/v4/verify/${app_id}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action,
-          signal: signal ?? "",
-          responses: [
-            {
-              merkle_root: payload.merkle_root,
-              nullifier_hash: payload.nullifier_hash,
-              proof: payload.proof,
-              verification_level: payload.verification_level,
-            },
-          ],
-        }),
+        body: JSON.stringify(requestBody),
       }
     );
 
+    const verifyData = await verifyResponse.json().catch(() => ({}));
+
     if (!verifyResponse.ok) {
-      const errorData = await verifyResponse.json().catch(() => ({}));
-      console.error("Cloud proof verification failed:", errorData);
+      console.error("Cloud proof verification failed:", verifyData);
       return NextResponse.json({
         error: "Verificacion de World ID fallida",
-        details: errorData,
+        details: verifyData,
         status: 400,
       });
     }
