@@ -38,19 +38,13 @@ export async function POST(req: NextRequest) {
 
     // === PASO 1: Verificar proof en la nube ===
     // Usamos fetch directo al endpoint v2 con solo los campos requeridos.
-    // signal_hash se calcula igual que la libreria: hashToField del signal.
-    // Para signal vacio, el hash es un valor fijo conocido.
-    const { hashToField } = await import("@worldcoin/idkit-core/backend");
-
-    const signalHash = hashToField(signal ?? "").digest;
-
     const requestBody = {
       merkle_root: payload.merkle_root,
       nullifier_hash: payload.nullifier_hash,
       proof: payload.proof,
       verification_level: payload.verification_level,
       action,
-      signal_hash: signalHash,
+      signal_hash: signal ?? "",
     };
 
     console.log("APP_ID:", app_id);
