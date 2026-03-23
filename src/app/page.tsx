@@ -5,11 +5,11 @@ import {
   MiniKit,
   VerificationLevel,
 } from "@worldcoin/minikit-js";
-import FaucetABI from "@/abi/MXCFaucetV3.json";
+import FaucetABI from "@/abi/MXCFaucetV4.json";
 
 const FAUCET_ADDRESS =
   process.env.NEXT_PUBLIC_FAUCET_ADDRESS ||
-  "0x0B58Ee4c648A3AB547d059F890015802536579EE";
+  "0xD03bC1e27EBCD9A70A3AD3C4c7C7DA7cEbfC47d2";
 const APP_ID =
   process.env.NEXT_PUBLIC_APP_ID || "app_34eda6ef2b7ca54ef9e44cbde3a7652e";
 const ACTION_ID = "claim-daily-mxc";
@@ -356,7 +356,7 @@ export default function Home() {
         Math.floor(parseFloat(usdcAmount) * 1e6)
       ).toString();
 
-      // Multicall: 1) Transfer USDC to faucet, 2) Complete purchase
+      // Multicall: 1) Transfer USDC to faucet V4, 2) Complete purchase
       const { finalPayload } =
         await MiniKit.commandsAsync.sendTransaction({
           transaction: [

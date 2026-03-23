@@ -1,0 +1,123 @@
+[
+  {
+    "inputs": [
+      { "name": "_mxcToken", "type": "address" },
+      { "name": "_usdcToken", "type": "address" },
+      { "name": "_signer", "type": "address" },
+      { "name": "_mxcPerUSDC", "type": "uint256" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      { "name": "nullifierHash", "type": "bytes32" },
+      { "name": "deadline", "type": "uint256" },
+      { "name": "signature", "type": "bytes" }
+    ],
+    "name": "claim",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "usdcAmount", "type": "uint256" }
+    ],
+    "name": "completePurchase",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "user", "type": "address" }
+    ],
+    "name": "lastClaim",
+    "outputs": [
+      { "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "user", "type": "address" }
+    ],
+    "name": "canClaim",
+    "outputs": [
+      { "name": "", "type": "bool" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "user", "type": "address" }
+    ],
+    "name": "timeUntilNextClaim",
+    "outputs": [
+      { "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "claimAmount",
+    "outputs": [
+      { "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "claimCooldown",
+    "outputs": [
+      { "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "mxcBalance",
+    "outputs": [
+      { "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "usdcAmount", "type": "uint256" }
+    ],
+    "name": "estimateMXCforUSDC",
+    "outputs": [
+      { "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "user", "type": "address" },
+      { "indexed": false, "name": "amount", "type": "uint256" },
+      { "indexed": false, "name": "nullifierHash", "type": "bytes32" }
+    ],
+    "name": "Claimed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "buyer", "type": "address" },
+      { "indexed": false, "name": "usdcSpent", "type": "uint256" },
+      { "indexed": false, "name": "mxcReceived", "type": "uint256" }
+    ],
+    "name": "Purchased",
+    "type": "event"
+  }
+]
