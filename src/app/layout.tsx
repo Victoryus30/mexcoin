@@ -13,7 +13,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <MiniKitProvider>
-        <body>{children}</body>
+        <body style={{ height: '100vh', overflowY: 'auto', overscrollBehavior: 'none' }}>{children}</body>
       </MiniKitProvider>
     </html>
   );
